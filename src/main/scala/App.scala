@@ -9,6 +9,8 @@ import unfiltered.response.ResponseString
 import org.joda.time.format.ISODateTimeFormat
 
 import common._
+import org.joda.time.DateTime
+
 /** unfiltered plan */
 trait KApp extends unfiltered.filter.Plan {
   self: KinoService with KPlanerCreationService =>
@@ -55,12 +57,30 @@ trait KApp extends unfiltered.filter.Plan {
         }
       }, e)
 
+      def lift[E,A,B](r:Reporter[E,A,B]):Reporter[E,List[A],List[B]] = {
+        (ola :Option[List[A]]) => {
+          ola match  {
+            case Some(l) => {
+              val applied = l.map(a => r(Option(a)))
+              if (applied.forall(_.isRight)) {
+                Right(Option(applied.flatMap(_.right.get)))
+              } else {
+                Left(applied.flatMap(_.left.toOption).head)
+              }
+            }
+            case None => Right(None)
+          }
+        }
+      }
+
       val expected = for (
         test <- nLookup("ahoy") is isValid2ElementList(_ + "is not a valid list") is required("missing");
+        test2 <- nLookup("ahoy2") is lift(isDate(_ + "not a date")) is  required("missing");
         kino <- lookup("kinoid") is isKino(_ + " is not a kino") is required("missing");
         date <- lookup("date") is isDate(_ + " is not a date") is required("missing")
       ) yield {
         val ahoy:List[String] = test.get
+        val ahoy2:List[DateTime] = test2.get
         Ok ~> JsContent ~> ResponseString(CustomSerializer.generate(newKplaner(kino.get, date.get)))
       }
 
