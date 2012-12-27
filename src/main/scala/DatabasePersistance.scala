@@ -28,7 +28,6 @@ class DBPersistance extends KinoService with LocalH2{
   /*  db withSession {
     Query(DBPersistance.Kinos)
   }*/
-
   def findKino(name: String) = ???
 
   def listShowing() = ???

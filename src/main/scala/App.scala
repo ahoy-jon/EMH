@@ -42,10 +42,25 @@ trait KApp extends unfiltered.filter.Plan {
         os.flatMap(s => findKino(s).headOption)
       },e)
 
+      def nLookup[E](key: String): QueryM[E,Option[List[String]]] =
+        QueryM {
+          (params, _, log0) =>
+            (Some(key), log0, params.get(key).map(_.toList))
+        }
+
+      def isValid2ElementList[E](e:List[String] => E) = watch((os:Option[List[String]]) => {
+        os match {
+          case Some(a :: b :: Nil) => os
+          case _ => None
+        }
+      }, e)
+
       val expected = for (
+        test <- nLookup("ahoy") is isValid2ElementList(_ + "is not a valid list") is required("missing");
         kino <- lookup("kinoid") is isKino(_ + " is not a kino") is required("missing");
         date <- lookup("date") is isDate(_ + " is not a date") is required("missing")
       ) yield {
+        val ahoy:List[String] = test.get
         Ok ~> JsContent ~> ResponseString(CustomSerializer.generate(newKplaner(kino.get, date.get)))
       }
 
@@ -61,9 +76,6 @@ trait KApp extends unfiltered.filter.Plan {
  */
 
     case Path("/help") => NotImplemented
-
-
-
     case _ => NotFound ~> HtmlContent ~> Html(<html><body><h1>NotFound</h1><ul>
       {List("kinolist", "filmlist", "sessions").map(s => <li><a href={s}>{s}</a></li>)}
     </ul>
